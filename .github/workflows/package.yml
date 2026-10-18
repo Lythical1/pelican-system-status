@@ -1,0 +1,136 @@
+name: system-status
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release tag to package (for example v1.4.0)
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+jobs:
+  package:
+    runs-on: ubuntu-24.04
+    env:
+      DEFAULT_BRANCH: ${{ github.event.repository.default_branch || 'main' }}
+    steps:
+      - name: Checkout default branch
+        uses: actions/checkout@v7
+        with:
+          ref: ${{ env.DEFAULT_BRANCH }}
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Resolve release version
+        id: release
+        run: |
+          TAG="${{ github.event.release.tag_name || inputs.tag }}"
+          VERSION="${TAG#v}"
+
+          if [ -z "$TAG" ]; then
+            echo "ERROR: no release tag was resolved. Check the release event or workflow_dispatch input." >&2
+            exit 1
+          fi
+
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "Resolved tag: $TAG"
+          echo "Resolved version: $VERSION"
+
+      - name: Update plugin.json and update.json
+        run: |
+          REPO="${{ github.repository }}"
+          TAG="${{ steps.release.outputs.tag }}"
+          VERSION="${{ steps.release.outputs.version }}"
+          DOWNLOAD_URL="https://github.com/$REPO/releases/download/$TAG/system-status.zip"
+
+          jq --arg version "$VERSION" '.version = $version' plugin.json > plugin.json.tmp
+          mv plugin.json.tmp plugin.json
+
+          cat > update.json << EOF
+          {
+            "*": {
+              "version": "$VERSION",
+              "download_url": "$DOWNLOAD_URL"
+            }
+          }
+          EOF
+
+      - name: Commit and push metadata to default branch
+        run: |
+          git config --local user.email "github-actions[bot]@users.noreply.github.com"
+          git config --local user.name "github-actions[bot]"
+          git add plugin.json update.json
+
+          if git diff --staged --quiet; then
+            echo "No metadata changes to commit"
+          else
+            git commit -m "Update release metadata to version ${{ steps.release.outputs.version }}"
+            git pull --rebase origin "${DEFAULT_BRANCH}"
+            git push origin "HEAD:${DEFAULT_BRANCH}"
+          fi
+
+      - name: Verify default branch versions before packaging
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+          git fetch origin "${DEFAULT_BRANCH}"
+
+          MAIN_PLUGIN_VERSION="$(git show "origin/${DEFAULT_BRANCH}:plugin.json" | jq -r '.version')"
+          MAIN_UPDATE_VERSION="$(git show "origin/${DEFAULT_BRANCH}:update.json" | jq -r '.["*"].version')"
+
+          echo "main plugin.json version: $MAIN_PLUGIN_VERSION"
+          echo "main update.json version: $MAIN_UPDATE_VERSION"
+
+          test "$MAIN_PLUGIN_VERSION" = "$VERSION"
+          test "$MAIN_UPDATE_VERSION" = "$VERSION"
+
+      - name: Reset workspace to updated default branch
+        run: |
+          git checkout "${DEFAULT_BRANCH}"
+          git reset --hard "origin/${DEFAULT_BRANCH}"
+
+      - name: Create system-status directory structure
+        run: |
+          mkdir -p system-status
+          rsync -av --exclude='.git' --exclude='system-status' ./ system-status/
+
+      - name: Create zip archive
+        run: zip -r system-status.zip system-status/
+
+      - name: Verify package archive
+        run: ls -lah system-status.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: system-status
+          path: system-status.zip
+
+      - name: Upload zip to GitHub Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          REPO="${{ github.repository }}"
+          TAG="${{ steps.release.outputs.tag }}"
+
+          echo "Uploading system-status.zip for release tag: '$TAG' to repo: $REPO"
+
+          if [ -z "$TAG" ]; then
+            echo "ERROR: release tag is empty; aborting upload." >&2
+            exit 1
+          fi
+
+          gh --version
+
+          if gh release view "$TAG" --repo "$REPO" >/dev/null 2>&1; then
+            echo "Release $TAG exists — uploading asset"
+            gh release upload "$TAG" system-status.zip --repo "$REPO" --clobber
+          else
+            echo "Release $TAG not found — creating it and attaching the asset"
+            gh release create "$TAG" --repo "$REPO" --title "$TAG" --notes "Automated packaging for $TAG" system-status.zip
+          fi
