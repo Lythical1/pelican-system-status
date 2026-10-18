@@ -1,0 +1,16 @@
+{
+    "id": "system-status",
+    "name": "System Status",
+    "author": "lythical@lythical.eu",
+    "version": "0.1.2",
+    "description": "Admin page with live usage of the panel server and all nodes.",
+    "category": "plugin",
+    "url": null,
+    "update_url": null,
+    "namespace": "Lythical\\SystemStatus",
+    "class": "SystemStatusPlugin",
+    "panels": null,
+    "panel_version": null,
+    "api_version": 1,
+    "composer_packages": null
+}
