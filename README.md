@@ -6,10 +6,11 @@ An admin page for Pelican Panel that shows live usage of the panel server and ev
 
 - **Panel server** - CPU (load per core), memory, swap and disk, with hostname, OS, PHP version, CPU model, uptime, last reboot, process count and kernel
 - **Every node** - live CPU, memory, swap and disk from Wings, plus OS, architecture, kernel and Wings version
-- **Allocation bars** - how much CPU, memory and disk is allocated to servers compared with the node's limits (starts blinking red if allocation is over 100%)
+- **Allocation bars** - how much CPU, memory and disk is allocated to servers compared with the node's limits
 - **Load chart** - load average for the last 15 minutes, refreshed every 10 seconds
 - **Node status** - online/offline dot, the connection error when a node is down, and Maintenance and Deploy badges
 - **Color-coded bars** - green below 70%, yellow from 70%, red from 90%
+- Progress bars start blinking red if a bar is over 90% as per Pelican's own progress bar
 
 ## Installation
 
