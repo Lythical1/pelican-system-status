@@ -59,7 +59,7 @@
                         @if ($i === 0 && $card['load'])
                             <div class="ss-resource">
                                 <span class="ss-label text-sm font-medium">
-                                    <span class="text-gray-500 dark:text-gray-400">- {{ round($card['load'][0], 2) }}{{ $card['cores'] ? " / {$card['cores']} cores" : '' }}</span>
+                                    <span class="text-gray-500 dark:text-gray-400">{{ round($card['load'][0], 2) }}{{ $card['cores'] ? " / {$card['cores']} cores" : '' }}</span>
                                 </span>
                                 @livewire(\Lythical\SystemStatus\Filament\Admin\Widgets\LoadChart::class, ['nodeId' => $card['id'] ?? null], key('load-' . ($card['id'] ?? 'panel')))
                             </div>
