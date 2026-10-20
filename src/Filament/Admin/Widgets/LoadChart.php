@@ -35,6 +35,12 @@ class LoadChart extends ChartWidget
         ];
     }
 
+    // bug chart for the panel showed up in main dashboard
+    public static function canView(): bool
+    {
+        return !request()->routeIs('filament.admin.pages.dashboard');
+    }
+
     // null when wings is down
     private function load(): ?float
     {
